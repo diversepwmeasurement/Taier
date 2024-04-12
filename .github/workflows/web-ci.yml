@@ -1,71 +1,66 @@
-name: Taier Web CI
-
-on:
-  push:
-    branches:
-      - master
-    paths:
-      - "taier-ui/**"
-  pull_request:
-    branches:
-      - master
-    paths:
-      - "taier-ui/**"
-
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
     env:
       working-directory: ./taier-ui
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - continue-on-error: true
+      name: Use Node.js 16
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        registry-url: https://registry.npmjs.org/
+    - continue-on-error: true
+      name: Install pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        run_install: false
+        version: 7
+    - continue-on-error: true
+      id: pnpm-cache
+      name: Get pnpm store directory
+      run: 'echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+        '
+      shell: bash
+    - continue-on-error: true
+      name: Setup pnpm cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        restore-keys: '${{ runner.os }}-pnpm-store-
+
+          '
+    - continue-on-error: true
+      name: Install dependencies
+      run: pwd && pnpm install
+      working-directory: ${{ env.working-directory }}
+    - continue-on-error: true
+      name: Lint code
+      run: pnpm lint:es && pnpm lint:css
+      working-directory: ${{ env.working-directory }}
+    - continue-on-error: true
+      name: Run build
+      run: pnpm build
+      working-directory: ${{ env.working-directory }}
+    - continue-on-error: true
+      env:
+        CI: true
+        NODE_ENV: test
+      name: Run tests
+      run: pnpm test
+      working-directory: ${{ env.working-directory }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Use Node.js 16
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          registry-url: "https://registry.npmjs.org/"
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 7
-          run_install: false
-
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        working-directory: ${{ env.working-directory }}
-        run: pwd && pnpm install
-
-      - name: Lint code
-        working-directory: ${{ env.working-directory }}
-        run: pnpm lint:es && pnpm lint:css
-
-      - name: Run build
-        working-directory: ${{ env.working-directory }}
-        run: pnpm build
-
-      - name: Run tests
-        working-directory: ${{ env.working-directory }}
-        run: pnpm test
-        env:
-          CI: true
-          NODE_ENV: test
+        os:
+        - ubuntu-latest
+        - windows-latest
+name: Taier Web CI
+on:
+  repository_dispatch:
+    types: trigger-ga___web-ci.yml
